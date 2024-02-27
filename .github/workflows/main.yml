@@ -23,7 +23,7 @@ jobs:
           server-password: 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
 
       - name: changing directory
-        run: cd /root/
+        run: sudo cd /root/
 
       - name: Build with Maven
         run: mvn package -e
