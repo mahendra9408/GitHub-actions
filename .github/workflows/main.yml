@@ -22,6 +22,9 @@ jobs:
           server-username: mahendra9408
           server-password: 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
 
+      - name: changing directory
+        run: cd /home/runner/.m2/
+
       - name: Build with Maven
         run: mvn package -e
 
