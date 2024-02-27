@@ -1,0 +1,65 @@
+name: Dockerize and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+
+      - name: Build with Maven
+        run: mvn package
+
+      - name: Install Jib Plugin
+        run: |
+          wget -q https://github.com/GoogleContainerTools/jib/releases/download/v3.1.4/jib-maven-plugin-3.1.4.zip
+          unzip -q jib-maven-plugin-3.1.4.zip -d jib-maven-plugin
+          mv jib-maven-plugin /usr/share/jib
+
+      - name: Dockerize with Jib
+        run: |
+          export PATH=$PATH:/usr/share/jib/bin
+          mvn compile jib:build
+
+      - name: Install Fortify
+        run: |
+          wget -q https://download.microfocus.com/AppWeb/fortify-sca-latest.zip
+          unzip -q fortify-sca-latest.zip -d fortify-sca
+          mv fortify-sca /usr/share/fortify
+
+      - name: SAST Scan with Fortify
+        run: |
+          export PATH=$PATH:/usr/share/fortify/bin
+          fortifyclient -version
+          fortifyclient -scan -f pom.xml -project MyProject -version 1.0 -scanname MyScan -scanclustertype IDE -source C:\path\to\source -resultsbundle C:\path\to\results.fpr
+
+      - name: Install AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y awscli
+
+      - name: Login to AWS ECR
+        run: aws ecr get-login-password --region your-region | docker login --username AWS --password-stdin your-account-id.dkr.ecr.your-region.amazonaws.com
+
+      - name: Push Docker Image to AWS ECR
+        run: docker push your-account-id.dkr.ecr.your-region.amazonaws.com/your-repository-name:latest
+
+      - name: Scan Docker Image in ECR
+        run: |
+          aws ecr start-image-scan --repository-name your-repository-name --image-id imageDigest=$(aws ecr list-images --repository-name your-repository-name --filter tagStatus=TAGGED --query 'imageIds[0].imageDigest' --output text) --region your-region
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl create deployment hello-world --image=your-account-id.dkr.ecr.your-region.amazonaws.com/your-repository-name:latest
+          kubectl expose deployment hello-world --type=LoadBalancer --port=80 --target-port=8080
