@@ -17,6 +17,10 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: '11'
+          distribution: 'adopt'
+          server-id: github
+          server-username: mahendra9408
+          server-password: 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
 
       - name: Build with Maven
         run: mvn package
